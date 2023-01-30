@@ -438,6 +438,8 @@ static void setup(void) {
                         "mutrace: good idea to recompile with -rdynamic enabled since this produces more\n"
                         "mutrace: useful stack traces.\n\n");
 
+#if defined(__malloc_hook)
+	
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         if (__malloc_hook) {
@@ -460,6 +462,8 @@ static void setup(void) {
                 real_exit(1);
         }
 
+#endif
+	
         t = hash_size;
         if (parse_env("MUTRACE_HASH_SIZE", &t) < 0 || t <= 0)
                 fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_HASH_SIZE.\n");

@@ -80,6 +80,9 @@ static void load_funcs(void)
 
 #endif
 
+#ifndef PTR
+#define PTR             void *
+#endif
 
 static asymbol **syms;		/* Symbol table.  */
 

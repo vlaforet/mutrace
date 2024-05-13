@@ -1,10 +1,19 @@
 MUTRACE Mutex Tracer
 
-GIT:
-        git://git.0pointer.de/mutrace.git
+sudo apt-get install binutils-dev automake
+sudo apt install libiberty-dev -y
 
-GITWEB:
-        http://git.0pointer.de/?p=mutrace.git
+
+INSTALL:
+        To build mutrace please install these dependencies:
+
+                sudo apt-get install -y binutils-dev automake libiberty-dev
+
+        Then run
+
+                ./bootstrap.sh
+                make
+                make install
 
 NOTES:
         For a terse overview what mutrace can do for you, please read

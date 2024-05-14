@@ -19,7 +19,7 @@
 
 LIB_DIR="@LIB_DIR@"
 
-if ! TEMP=$(getopt -o +ardhf --long hash-size:,frames:,locked-min:,owner-changed-min:,contended-min:,max:,mutex-order:,cond-order:,trap,help,all,debug-info,first-ld -n mutrace -- "$@"); then
+if ! TEMP=$(getopt -o +ardhfo: --long hash-size:,frames:,locked-min:,owner-changed-min:,contended-min:,max:,mutex-order:,cond-order:,trap,help,all,debug-info,first-ld,output-file -n mutrace -- "$@"); then
     exit 1
 fi
 
@@ -92,9 +92,15 @@ while :; do
         export MUTRACE_MAX=0
         shift 1
         ;;
+
     -f | --first-ld)
         first_ld=1
         shift 1
+        ;;
+
+    -o | --output-file)
+        export MUTRACE_OUTPUT_FILE="$2"
+        shift 2
         ;;
 
     -h | --help)
@@ -127,6 +133,9 @@ OPTIONS:
                                   at least this often
       --all                       Show all mutexes, overrides the values of the
                                   three values above
+  -f, --first-ld                  Set mutrace as the first library in LD_PRELOAD
+  -o, --output-file=STRING        Append traces to this file. If NULL, traces
+                                  are printed to stderr.
 
   -r, --track-rt                  Track for each mutex if it was accessed from
                                   a realtime thread

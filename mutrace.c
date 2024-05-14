@@ -200,6 +200,8 @@ static volatile bool threads_existing = false;
 
 static uint64_t nsec_timestamp_setup;
 
+static FILE *output_fd;
+
 typedef struct {
         const char *command; /* as passed to --order command line argument */
         const char *ui_string; /* as displayed by show_summary() */
@@ -432,8 +434,18 @@ static void setup(void) {
         if (LIKELY(initialized))
                 return;
 
+        // This option should be processed before any ouput for output_fd to be populated.
+        s = getenv("MUTRACE_OUTPUT_FILE");
+        if (s != NULL) {
+                output_fd = fopen(s, "a");
+
+                if (output_fd == NULL)
+                        fprintf(stderr, "mutrace: WARNING: Failed to open $MUTRACE_OUTPUT_FILE.\n");
+        } else
+                output_fd = stderr;
+
         if (!dlsym(NULL, "main"))
-                fprintf(stderr,
+                fprintf(output_fd,
                         "mutrace: Application appears to be compiled without -rdynamic. It might be a\n"
                         "mutrace: good idea to recompile with -rdynamic enabled since this produces more\n"
                         "mutrace: useful stack traces.\n\n");
@@ -444,7 +456,7 @@ static void setup(void) {
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
         if (__malloc_hook) {
 #pragma GCC diagnostic pop
-                fprintf(stderr,
+                fprintf(output_fd,
                         "mutrace: Detected non-glibc memory allocator. Your program uses some\n"
                         "mutrace: alternative memory allocator (jemalloc?) which is not compatible with\n"
                         "mutrace: mutrace. Please rebuild your program with the standard memory\n"
@@ -459,6 +471,8 @@ static void setup(void) {
                  * lock routines that do not end up calling
                  * pthread_mutex_xxx(). */
 
+                if (output_fd != stderr)
+                        fclose(output_fd);
                 real_exit(1);
         }
 
@@ -466,55 +480,55 @@ static void setup(void) {
 	
         t = hash_size;
         if (parse_env("MUTRACE_HASH_SIZE", &t) < 0 || t <= 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_HASH_SIZE.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_HASH_SIZE.\n");
         else
                 hash_size = t;
 
         t = frames_max;
         if (parse_env("MUTRACE_FRAMES", &t) < 0 || t <= 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_FRAMES.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_FRAMES.\n");
         else
                 frames_max = t;
 
         t = show_n_wait_min;
         if (parse_env("MUTRACE_WAIT_MIN", &t) < 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_WAIT_MIN.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_WAIT_MIN.\n");
         else
                 show_n_wait_min = t;
 
         t = show_n_locked_min;
         if (parse_env("MUTRACE_LOCKED_MIN", &t) < 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_LOCKED_MIN.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_LOCKED_MIN.\n");
         else
                 show_n_locked_min = t;
 
         t = show_n_read_locked_min;
         if (parse_env("MUTRACE_READ_LOCKED_MIN", &t) < 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_READ_LOCKED_MIN.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_READ_LOCKED_MIN.\n");
         else
                 show_n_read_locked_min = t;
 
         t = show_n_contended_min;
         if (parse_env("MUTRACE_CONTENDED_MIN", &t) < 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_CONTENDED_MIN.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_CONTENDED_MIN.\n");
         else
                 show_n_contended_min = t;
 
         t = show_n_read_contended_min;
         if (parse_env("MUTRACE_READ_CONTENDED_MIN", &t) < 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_READ_CONTENDED_MIN.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_READ_CONTENDED_MIN.\n");
         else
                 show_n_read_contended_min = t;
 
         t = show_n_owner_changed_min;
         if (parse_env("MUTRACE_OWNER_CHANGED_MIN", &t) < 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_OWNER_CHANGED_MIN.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_OWNER_CHANGED_MIN.\n");
         else
                 show_n_owner_changed_min = t;
 
         t = show_n_max;
         if (parse_env("MUTRACE_MAX", &t) < 0)
-                fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_MAX.\n");
+                fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_MAX.\n");
         else
                 show_n_max = t;
 
@@ -522,7 +536,7 @@ static void setup(void) {
         if (s != NULL) {
                 t = summary_mutex_order_from_command(s);
                 if (t == MUTEX_ORDER_INVALID)
-                        fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_SUMMARY_MUTEX_ORDER.\n");
+                        fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_SUMMARY_MUTEX_ORDER.\n");
                 else
                         summary_mutex_order = t;
         }
@@ -531,7 +545,7 @@ static void setup(void) {
         if (s != NULL) {
                 t = summary_cond_order_from_command(s);
                 if (t == COND_ORDER_INVALID)
-                        fprintf(stderr, "mutrace: WARNING: Failed to parse $MUTRACE_SUMMARY_COND_ORDER.\n");
+                        fprintf(output_fd, "mutrace: WARNING: Failed to parse $MUTRACE_SUMMARY_COND_ORDER.\n");
                 else
                         summary_cond_order = t;
         }
@@ -585,7 +599,7 @@ static void setup(void) {
 
         initialized = true;
 
-        fprintf(stderr, "mutrace: "PACKAGE_VERSION" successfully initialized for process %s (PID: %lu).\n",
+        fprintf(output_fd, "mutrace: "PACKAGE_VERSION" successfully initialized for process %s (PID: %lu).\n",
                 get_prname(), (unsigned long) getpid());
 }
 
@@ -791,7 +805,7 @@ static bool mutex_info_dump(struct mutex_info *mi) {
 
         stacktrace_str = stacktrace_to_string(mi->stacktrace);
 
-        fprintf(stderr,
+        fprintf(output_fd,
                 "\nMutex #%u (0x%p) first referenced by:\n"
                 "%s", mi->id, mi->mutex ? (void*) mi->mutex : (void*) mi->rwlock, stacktrace_str);
 
@@ -808,7 +822,7 @@ static bool cond_info_dump(struct cond_info *ci) {
 
         stacktrace_str = stacktrace_to_string(ci->stacktrace);
 
-        fprintf(stderr,
+        fprintf(output_fd,
                 "\nCondvar #%u (0x%p) first referenced by:\n"
                 "%s", ci->id, ci->cond, stacktrace_str);
 
@@ -876,7 +890,7 @@ static bool mutex_info_stat(struct mutex_info *mi) {
         if (!mutex_info_show(mi))
                 return false;
 
-        fprintf(stderr,
+        fprintf(output_fd,
                 "%8u %8u %8u %8u %13.3f %12.3f %12.3f %c%c%c%c%c%c\n",
                 mi->id,
                 mi->n_locked[WRITE],
@@ -895,7 +909,7 @@ static bool mutex_info_stat(struct mutex_info *mi) {
         /* Show a second row for rwlocks, listing the statistics for read-only
          * locks; the first row shows the statistics for write-only locks. */
         if (mi->rwlock) {
-                fprintf(stderr,
+                fprintf(output_fd,
                         "         %8u          %8u %13.3f %12.3f %12.3f       \n",
                         mi->n_locked[READ],
                         mi->n_contended[READ],
@@ -911,7 +925,7 @@ static bool cond_info_stat(struct cond_info *ci) {
         if (!cond_info_show(ci))
                 return false;
 
-        fprintf(stderr,
+        fprintf(output_fd,
                 "%8u %8u %8u %8u %12.3f %13.3f %12.3f     %c%c\n",
                 ci->id,
                 ci->n_wait,
@@ -959,7 +973,7 @@ static void show_summary_internal(void) {
 
         t = nsec_now() - nsec_timestamp_setup;
 
-        fprintf(stderr,
+        fprintf(output_fd,
                 "\n"
                 "mutrace: Showing statistics for process %s (PID: %lu).\n", get_prname(), (unsigned long) getpid());
 
@@ -976,12 +990,12 @@ static void show_summary_internal(void) {
         }
 
         if (n <= 0) {
-                fprintf(stderr,
+                fprintf(output_fd,
                         "mutrace: No mutexes used.\n");
                 return;
         }
 
-        fprintf(stderr,
+        fprintf(output_fd,
                 "mutrace: %u mutexes used.\n", n);
 
         mutex_table = malloc(sizeof(struct mutex_info*) * n);
@@ -1006,7 +1020,7 @@ static void show_summary_internal(void) {
                 m += mutex_info_dump(mutex_table[i - 1]) ? 1 : 0;
 
         if (m > 0) {
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: Showing %u mutexes in order of %s:\n"
                         "\n"
@@ -1018,13 +1032,13 @@ static void show_summary_internal(void) {
 
 
                 if (i < n)
-                        fprintf(stderr,
+                        fprintf(output_fd,
                                 "     ...      ...      ...      ...           ...          ...          ... ||||||\n");
                 else
-                        fprintf(stderr,
+                        fprintf(output_fd,
                                 "                                                                            ||||||\n");
 
-                fprintf(stderr,
+                fprintf(output_fd,
                         "                                                                            /|||||\n"
                         "          Object:                                      M = Mutex, W = RWLock /||||\n"
                         "           State:                                  x = dead, ! = inconsistent /|||\n"
@@ -1036,12 +1050,12 @@ static void show_summary_internal(void) {
                         "mutrace: Note that rwlocks are shown as two lines: write locks then read locks.\n");
 
                 if (!track_rt)
-                        fprintf(stderr,
+                        fprintf(output_fd,
                                 "\n"
                                 "mutrace: Note that the flags column R is only valid in --track-rt mode!\n\n");
 
         } else
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: No mutex contended according to filtering parameters.\n\n");
 
@@ -1063,12 +1077,12 @@ static void show_summary_internal(void) {
         }
 
         if (n <= 0) {
-                fprintf(stderr,
+                fprintf(output_fd,
                         "mutrace: No condition variables used.\n");
                 return;
         }
 
-        fprintf(stderr,
+        fprintf(output_fd,
                 "mutrace: %u condition variables used.\n", n);
 
         cond_table = malloc(sizeof(struct cond_info*) * n);
@@ -1093,7 +1107,7 @@ static void show_summary_internal(void) {
                 m += cond_info_dump(cond_table[i - 1]) ? 1 : 0;
 
         if (m > 0) {
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: Showing %u condition variables in order of %s:\n"
                         "\n"
@@ -1105,24 +1119,24 @@ static void show_summary_internal(void) {
 
 
                 if (i < n)
-                        fprintf(stderr,
+                        fprintf(output_fd,
                                 "     ...      ...      ...      ...          ...           ...          ...     ||\n");
                 else
-                        fprintf(stderr,
+                        fprintf(output_fd,
                                 "                                                                                ||\n");
 
-                fprintf(stderr,
+                fprintf(output_fd,
                         "                                                                                /|\n"
                         "           State:                                     x = dead, ! = inconsistent /\n"
                         "             Use:                                     R = used in realtime thread \n");
 
                 if (!track_rt)
-                        fprintf(stderr,
+                        fprintf(output_fd,
                                 "\n"
                                 "mutrace: Note that the flags column R is only valid in --track-rt mode!\n");
 
         } else
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: No condition variable contended according to filtering parameters.\n");
 
@@ -1132,7 +1146,7 @@ static void show_summary_internal(void) {
                 unlock_hash_cond(u);
 
         /* Footer. */
-        fprintf(stderr,
+        fprintf(output_fd,
                 "\n"
                 "mutrace: Total runtime is %0.3f ms.\n", (double) t / 1000000.0);
 
@@ -1140,35 +1154,35 @@ static void show_summary_internal(void) {
         assert(n_cpus >= 1);
 
         if (n_cpus <= 1)
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: WARNING: Results for uniprocessor machine. Results might be more interesting\n"
                         "                  when run on an SMP machine!\n");
         else
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: Results for SMP with %li processors.\n", n_cpus);
 
         if (n_broken_mutexes > 0)
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: WARNING: %u inconsistent mutex uses detected. Results might not be reliable.\n"
                         "mutrace:          Fix your program first!\n", n_broken_mutexes);
 
         if (n_broken_conds > 0)
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: WARNING: %u inconsistent condition variable uses detected. Results might not be reliable.\n"
                         "mutrace:          Fix your program first!\n", n_broken_conds);
 
         if (n_collisions > 0)
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: WARNING: %u internal hash collisions detected. Results might not be as reliable as they could be.\n"
                         "mutrace:          Try to increase --hash-size=, which is currently at %u.\n", n_collisions, hash_size);
 
         if (n_self_contended > 0)
-                fprintf(stderr,
+                fprintf(output_fd,
                         "\n"
                         "mutrace: WARNING: %u internal mutex contention detected. Results might not be reliable as they could be.\n"
                         "mutrace:          Try to increase --hash-size=, which is currently at %u.\n", n_self_contended, hash_size);
@@ -1205,20 +1219,28 @@ static void show_summary_again(void) {
 
 static void shutdown(void) {
         show_summary();
+        if (output_fd != stderr)
+                fclose(output_fd);
 }
 
 void exit(int status) {
         show_summary();
+        if (output_fd != stderr)
+                fclose(output_fd);
         real_exit(status);
 }
 
 void _exit(int status) {
         show_summary();
+        if (output_fd != stderr)
+                fclose(output_fd);
         real_exit(status);
 }
 
 void _Exit(int status) {
         show_summary();
+        if (output_fd != stderr)
+                fclose(output_fd);
         real__Exit(status);
 }
 
